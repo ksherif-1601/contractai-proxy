@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ContractAI — Document Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #0f0e0c; --ink-2: #3a3832; --ink-3: #7a7870;
+    --paper: #faf9f6; --paper-2: #f2f0eb; --paper-3: #e8e5de;
+    --gold: #b8973a; --gold-light: #f0e8cc;
+    --seal: #1a3a2a; --seal-light: #e8f0ec; --seal-hover: #152e20;
+    --radius: 6px; --radius-lg: 12px; --danger: #c0392b;
+  }
+  html, body { height: 100%; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; min-height: 100vh; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 54px; border-bottom: 1px solid var(--paper-3); background: var(--paper); position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'Instrument Serif', serif; font-size: 18px; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+  .logo-seal { width: 24px; height: 24px; background: var(--seal); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #fff; font-family: 'Instrument Serif', serif; }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .nav-badge { background: var(--gold-light); color: #7a5a10; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+  .docs-remaining { font-size: 12px; color: var(--ink-3); }
+  .app { display: grid; grid-template-columns: 300px 1fr; min-height: calc(100vh - 54px); }
+  .sidebar { border-right: 1px solid var(--paper-3); background: var(--paper-2); display: flex; flex-direction: column; overflow-y: auto; }
+  .sidebar-header { padding: 20px 20px 12px; border-bottom: 1px solid var(--paper-3); }
+  .sidebar-header h2 { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .sidebar-header p { font-size: 12px; color: var(--ink-3); }
+  .doc-type-list { padding: 8px 0; flex: 1; }
+  .doc-type { display: flex; align-items: center; gap: 10px; padding: 10px 20px; cursor: pointer; transition: background 0.12s; border-left: 3px solid transparent; user-select: none; }
+  .doc-type:hover { background: var(--paper-3); }
+  .doc-type.active { background: var(--paper); border-left-color: var(--seal); }
+  .doc-icon { width: 30px; height: 30px; border-radius: 6px; background: var(--paper); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; border: 1px solid var(--paper-3); }
+  .doc-type.active .doc-icon { background: var(--seal-light); border-color: var(--seal-light); }
+  .doc-info h3 { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .doc-info p { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+  .steps-bar { display: flex; align-items: center; padding: 16px 32px; border-bottom: 1px solid var(--paper-3); background: var(--paper); }
+  .step-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--paper-3); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--ink-3); background: var(--paper); transition: all 0.2s; }
+  .step-item.active .step-num { background: var(--seal); border-color: var(--seal); color: #fff; }
+  .step-item.done .step-num { background: var(--seal-light); border-color: var(--seal-light); color: var(--seal); }
+  .step-item.done .step-label, .step-item.active .step-label { color: var(--ink); font-weight: 500; }
+  .step-arrow { width: 24px; height: 1px; background: var(--paper-3); margin: 0 8px; flex-shrink: 0; }
+  .content { flex: 1; overflow-y: auto; }
+  .form-panel { padding: 32px; max-width: 620px; }
+  .form-panel h2 { font-family: 'Instrument Serif', serif; font-size: 26px; letter-spacing: -0.5px; color: var(--ink); margin-bottom: 4px; }
+  .form-panel .subtitle { font-size: 13px; color: var(--ink-3); margin-bottom: 28px; }
+  .field { margin-bottom: 20px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--paper-3); border-radius: var(--radius); font-family: 'Inter', sans-serif; font-size: 13px; color: var(--ink); background: #fff; outline: none; transition: border-color 0.15s; appearance: none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--seal); box-shadow: 0 0 0 3px rgba(26,58,42,0.08); }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237a7870' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; cursor: pointer; }
+  .form-actions { display: flex; align-items: center; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--paper-3); }
+  .btn-generate { background: var(--seal); color: #fff; border: none; padding: 11px 24px; border-radius: var(--radius); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 8px; }
+  .btn-generate:hover { background: var(--seal-hover); }
+  .btn-back { background: none; border: 1px solid var(--paper-3); color: var(--ink-2); padding: 11px 20px; border-radius: var(--radius); font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer; }
+  .btn-back:hover { background: var(--paper-2); }
+  .generating { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 32px; text-align: center; gap: 20px; }
+  .spinner { width: 36px; height: 36px; border: 2px solid var(--paper-3); border-top-color: var(--seal); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .generating h3 { font-family: 'Instrument Serif', serif; font-size: 22px; color: var(--ink); }
+  .generating p { font-size: 13px; color: var(--ink-3); }
+  .doc-output { padding: 32px; }
+  .doc-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  .doc-toolbar h3 { font-family: 'Instrument Serif', serif; font-size: 20px; color: var(--ink); }
+  .toolbar-actions { display: flex; gap: 8px; }
+  .btn-action { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: 1px solid var(--paper-3); background: var(--paper-2); color: var(--ink-2); }
+  .btn-action:hover { background: var(--paper-3); }
+  .btn-action.primary { background: var(--seal); color: #fff; border-color: var(--seal); }
+  .doc-paper { background: #fff; border: 1px solid var(--paper-3); border-radius: var(--radius-lg); padding: 48px 56px; max-width: 700px; font-family: 'Georgia', serif; font-size: 14px; line-height: 1.8; color: #1a1a1a; white-space: pre-wrap; word-wrap: break-word; }
+  .disclaimer-box { background: var(--gold-light); border: 1px solid #d4b56a; border-radius: var(--radius); padding: 12px 16px; font-size: 11px; color: #6b4c0a; margin-bottom: 20px; max-width: 700px; display: flex; gap: 8px; }
+  .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 32px; text-align: center; gap: 16px; }
+  .welcome-icon { width: 64px; height: 64px; background: var(--seal-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .welcome h2 { font-family: 'Instrument Serif', serif; font-size: 26px; color: var(--ink); }
+  .welcome p { font-size: 14px; color: var(--ink-3); max-width: 380px; }
+  .error-msg { background: #fdf0ef; border: 1px solid #f5c6c2; border-radius: var(--radius); padding: 12px 16px; font-size: 13px; color: var(--danger); margin-top: 16px; display: none; }
+  @media (max-width: 768px) { .app { grid-template-columns: 1fr; } .sidebar { max-height: 200px; } .doc-paper { padding: 24px 20px; } .form-panel { padding: 20px; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><div class="logo-seal">C</div>ContractAI</div>
+  <div class="nav-right">
+    <div class="nav-badge">Free trial</div>
+    <div class="docs-remaining" id="docs-remaining">3 documents remaining</div>
+  </div>
+</nav>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-header"><h2>Document types</h2><p>Select a template to begin</p></div>
+    <div class="doc-type-list" id="doc-type-list"></div>
+  </div>
+  <div class="main">
+    <div class="steps-bar">
+      <div class="step-item active" id="step-1-indicator"><div class="step-num">1</div><div class="step-label">Choose document</div></div>
+      <div class="step-arrow"></div>
+      <div class="step-item" id="step-2-indicator"><div class="step-num">2</div><div class="step-label">Answer questions</div></div>
+      <div class="step-arrow"></div>
+      <div class="step-item" id="step-3-indicator"><div class="step-num">3</div><div class="step-label">Download document</div></div>
+    </div>
+    <div class="content" id="content-area">
+      <div class="welcome">
+        <div class="welcome-icon">📄</div>
+        <h2>What document do you need?</h2>
+        <p>Choose a template from the left to get started.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const WORKER_URL = 'https://contractai-proxy.vercel.app/api/proxy';
+
+const DOC_TYPES = [
+  { id:'nda', icon:'🤝', name:'Non-Disclosure Agreement', desc:'Protect confidential information', fields:[
+    {id:'disclosing_party',label:'Disclosing party name',type:'text',placeholder:'Your name or company name'},
+    {id:'receiving_party',label:'Receiving party name',type:'text',placeholder:'Other party name or company'},
+    {id:'purpose',label:'Purpose of disclosure',type:'text',placeholder:'e.g. Exploring a potential business partnership'},
+    {id:'duration',label:'Confidentiality period',type:'select',options:['1 year','2 years','3 years','5 years','Indefinite']},
+    {id:'jurisdiction',label:'Governing law (country or emirate)',type:'text',placeholder:'e.g. Dubai, UAE'},
+    {id:'mutual',label:'Is this mutual?',type:'select',options:['Yes — mutual NDA','No — one-way NDA']},
+    {id:'effective_date',label:'Effective date',type:'text',placeholder:'e.g. 1 July 2026'},
+    {id:'party1_address',label:'Disclosing party address',type:'text',placeholder:'Full business address'},
+    {id:'party1_email',label:'Disclosing party email',type:'text',placeholder:'contact@company.com'},
+    {id:'party1_signatory',label:'Disclosing party signatory name & title',type:'text',placeholder:'e.g. Ahmed Al Rashid, Managing Director'},
+    {id:'party2_address',label:'Receiving party address',type:'text',placeholder:'Full business address'},
+    {id:'party2_email',label:'Receiving party email',type:'text',placeholder:'contact@company.com'},
+    {id:'party2_signatory',label:'Receiving party signatory name & title',type:'text',placeholder:'e.g. Sarah Johnson, Founder'}
+  ]},
+  { id:'freelance', icon:'📋', name:'Freelance Service Agreement', desc:'Client contracts for freelancers', fields:[
+    {id:'freelancer_name',label:'Your name or business name',type:'text',placeholder:'Your name or studio name'},
+    {id:'client_name',label:'Client name or company',type:'text',placeholder:'Clients full name or company'},
+    {id:'services',label:'Services to be provided',type:'textarea',placeholder:'Describe the work you will do'},
+    {id:'total_fee',label:'Total project fee',type:'text',placeholder:'e.g. $3,500 USD'},
+    {id:'payment_terms',label:'Payment terms',type:'select',options:['50% upfront, 50% on delivery','100% upfront','Monthly retainer','Net 30 on invoice','Milestone-based']},
+    {id:'timeline',label:'Project timeline',type:'text',placeholder:'e.g. 4 weeks from project kickoff'},
+    {id:'revisions',label:'Revision rounds included',type:'select',options:['1 round','2 rounds','3 rounds','Unlimited (within scope)','None']},
+    {id:'jurisdiction',label:'Governing law (country or emirate)',type:'text',placeholder:'e.g. Dubai, UAE'},
+    {id:'effective_date',label:'Effective date',type:'text',placeholder:'e.g. 1 July 2026'},
+    {id:'freelancer_address',label:'Your address',type:'text',placeholder:'Your business address'},
+    {id:'freelancer_email',label:'Your email',type:'text',placeholder:'you@example.com'},
+    {id:'client_address',label:'Client address',type:'text',placeholder:'Client business address'},
+    {id:'client_email',label:'Client email',type:'text',placeholder:'client@example.com'},
+    {id:'client_signatory',label:'Client signatory name & title',type:'text',placeholder:'e.g. John Smith, CEO'}
+  ]},
+  { id:'contractor', icon:'👤', name:'Independent Contractor', desc:'Contractor vs employee clarity', fields:[
+    {id:'company_name',label:'Company or client name',type:'text',placeholder:'Company hiring the contractor'},
+    {id:'contractor_name',label:'Contractor name',type:'text',placeholder:'Individual or business name'},
+    {id:'services',label:'Scope of work',type:'textarea',placeholder:'Describe the services the contractor will provide'},
+    {id:'rate',label:'Compensation rate',type:'text',placeholder:'e.g. $75/hour or $5,000/month'},
+    {id:'start_date',label:'Start date',type:'text',placeholder:'e.g. 1 July 2026'},
+    {id:'duration',label:'Contract duration',type:'select',options:['3 months','6 months','12 months','Ongoing','Project-based']},
+    {id:'ip',label:'Who owns the work product?',type:'select',options:['Client owns all IP','Contractor retains IP','Shared ownership']},
+    {id:'jurisdiction',label:'Governing law (country or emirate)',type:'text',placeholder:'e.g. Dubai, UAE'},
+    {id:'company_address',label:'Company address',type:'text',placeholder:'Company business address'},
+    {id:'company_email',label:'Company email',type:'text',placeholder:'company@example.com'},
+    {id:'company_signatory',label:'Company signatory name & title',type:'text',placeholder:'e.g. John Smith, CEO'},
+    {id:'contractor_address',label:'Contractor address',type:'text',placeholder:'Contractor address'},
+    {id:'contractor_email',label:'Contractor email',type:'text',placeholder:'contractor@example.com'}
+  ]},
+  { id:'tos', icon:'🌐', name:'Terms of Service', desc:'Website, app or SaaS ToS', fields:[
+    {id:'company_name',label:'Company or product name',type:'text',placeholder:'Your company or product name'},
+    {id:'website_url',label:'Website or app URL',type:'text',placeholder:'https://yoursite.com'},
+    {id:'service_description',label:'What does your service do?',type:'textarea',placeholder:'Briefly describe your product or service'},
+    {id:'user_age',label:'Minimum user age',type:'select',options:['13 years old','16 years old','18 years old','No minimum']},
+    {id:'payments',label:'Does your service involve payments?',type:'select',options:['Yes — subscription','Yes — one-time purchases','No — free service','Freemium']},
+    {id:'contact_email',label:'Contact email for legal notices',type:'text',placeholder:'legal@yourcompany.com'},
+    {id:'jurisdiction',label:'Governing law (country or emirate)',type:'text',placeholder:'e.g. Dubai, UAE'},
+    {id:'effective_date',label:'Effective date',type:'text',placeholder:'e.g. 1 July 2026'},
+    {id:'company_address',label:'Company registered address',type:'text',placeholder:'Full registered address'}
+  ]},
+  { id:'consulting', icon:'💼', name:'Consulting Agreement', desc:'Retainer and advisory contracts', fields:[
+    {id:'consultant_name',label:'Consultant or advisor name',type:'text',placeholder:'Your name or company'},
+    {id:'client_name',label:'Client name or company',type:'text',placeholder:'Clients full name or company'},
+    {id:'services',label:'Consulting services',type:'textarea',placeholder:'Describe the advisory services you will provide'},
+    {id:'fee',label:'Consulting fee',type:'text',placeholder:'e.g. $5,000/month retainer or $300/hour'},
+    {id:'term',label:'Engagement length',type:'select',options:['3 months','6 months','12 months','Ongoing — 30 days notice to terminate']},
+    {id:'exclusivity',label:'Exclusivity',type:'select',options:['Non-exclusive','Exclusive in this industry','Fully exclusive']},
+    {id:'jurisdiction',label:'Governing law (country or emirate)',type:'text',placeholder:'e.g. Dubai, UAE'},
+    {id:'effective_date',label:'Effective date',type:'text',placeholder:'e.g. 1 July 2026'},
+    {id:'consultant_address',label:'Your address',type:'text',placeholder:'Your business address'},
+    {id:'consultant_email',label:'Your email',type:'text',placeholder:'you@example.com'},
+    {id:'client_address',label:'Client address',type:'text',placeholder:'Client business address'},
+    {id:'client_email',label:'Client email',type:'text',placeholder:'client@example.com'},
+    {id:'client_signatory',label:'Client signatory name & title',type:'text',placeholder:'e.g. John Smith, CEO'}
+  ]},
+  { id:'partnership', icon:'🤜', name:'Partnership Agreement', desc:'Business partnership terms', fields:[
+    {id:'partner1',label:'Partner 1 full name',type:'text',placeholder:'First partners name'},
+    {id:'partner2',label:'Partner 2 full name',type:'text',placeholder:'Second partners name'},
+    {id:'business_name',label:'Business or venture name',type:'text',placeholder:'The name of the partnership or venture'},
+    {id:'split',label:'Profit or ownership split',type:'text',placeholder:'e.g. 60/40 or 50/50'},
+    {id:'roles',label:'Describe each partners role',type:'textarea',placeholder:'e.g. Partner 1 handles operations; Partner 2 handles sales'},
+    {id:'dissolution',label:'What happens if one partner exits?',type:'select',options:['Buy-out at agreed valuation','Equal split of assets','30-day notice then wind down','To be negotiated at time of exit']},
+    {id:'jurisdiction',label:'Governing law (country or emirate)',type:'text',placeholder:'e.g. Dubai, UAE'},
+    {id:'effective_date',label:'Effective date',type:'text',placeholder:'e.g. 1 July 2026'},
+    {id:'partner1_address',label:'Partner 1 address',type:'text',placeholder:'Address'},
+    {id:'partner1_email',label:'Partner 1 email',type:'text',placeholder:'partner1@example.com'},
+    {id:'partner2_address',label:'Partner 2 address',type:'text',placeholder:'Address'},
+    {id:'partner2_email',label:'Partner 2 email',type:'text',placeholder:'partner2@example.com'}
+  ]}
+];
+
+let docsRemaining = 3;
+let currentDoc = null;
+let currentStep = 1;
+
+function renderSidebar() {
+  document.getElementById('doc-type-list').innerHTML = DOC_TYPES.map(d =>
+    '<div class="doc-type" onclick="selectDoc(\'' + d.id + '\')" id="dt-' + d.id + '">' +
+      '<div class="doc-icon">' + d.icon + '</div>' +
+      '<div class="doc-info"><h3>' + d.name + '</h3><p>' + d.desc + '</p></div>' +
+    '</div>'
+  ).join('');
+}
+
+function selectDoc(id) {
+  currentDoc = DOC_TYPES.find(function(d) { return d.id === id; });
+  document.querySelectorAll('.doc-type').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('dt-' + id).classList.add('active');
+  currentStep = 2; updateStepBar(); renderForm();
+}
+
+function updateStepBar() {
+  [1,2,3].forEach(function(n) {
+    var el = document.getElementById('step-' + n + '-indicator');
+    el.classList.remove('active','done');
+    if (n < currentStep) el.classList.add('done');
+    else if (n === currentStep) el.classList.add('active');
+  });
+}
+
+function renderForm() {
+  var d = currentDoc;
+  var fieldsHtml = d.fields.map(function(f) { return renderField(f); }).join('');
+  document.getElementById('content-area').innerHTML =
+    '<div class="form-panel">' +
+      '<h2>' + d.icon + ' ' + d.name + '</h2>' +
+      '<p class="subtitle">Fill in the details and we will generate your customized document.</p>' +
+      fieldsHtml +
+      '<div class="error-msg" id="error-msg">Please fill in all required fields.</div>' +
+      '<div class="form-actions">' +
+        '<button class="btn-generate" onclick="generate()"><span>✦</span> Generate document</button>' +
+        '<button class="btn-back" onclick="goBack()">Back</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function renderField(f) {
+  var optionalFields = ['effective_date','party1_address','party1_email','party1_signatory','party2_address','party2_email','party2_signatory','freelancer_address','freelancer_email','client_address','client_email','client_signatory','company_address','company_email','company_signatory','contractor_address','contractor_email','consultant_address','consultant_email','partner1_address','partner1_email','partner2_address','partner2_email'];
+  var labelText = f.label + (optionalFields.indexOf(f.id) !== -1 ? ' <span style="color:#7a7870;font-weight:400">(optional)</span>' : '');
+  if (f.type === 'textarea') return '<div class="field"><label>' + labelText + '</label><textarea id="field-' + f.id + '" placeholder="' + (f.placeholder||'') + '"></textarea></div>';
+  if (f.type === 'select') {
+    var opts = f.options.map(function(o) { return '<option>' + o + '</option>'; }).join('');
+    return '<div class="field"><label>' + labelText + '</label><select id="field-' + f.id + '">' + opts + '</select></div>';
+  }
+  var inputType = (f.id.indexOf('date') !== -1) ? 'date' : 'text';
+  return '<div class="field"><label>' + labelText + '</label><input type="' + inputType + '" id="field-' + f.id + '" placeholder="' + (f.placeholder||'') + '"></div>';
+}
+
+function goBack() {
+  currentStep = 1; updateStepBar();
+  document.querySelectorAll('.doc-type').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('content-area').innerHTML = '<div class="welcome"><div class="welcome-icon">📄</div><h2>What document do you need?</h2><p>Choose a template from the left to get started.</p></div>';
+}
+
+async function generate() {
+  var d = currentDoc;
+  var values = {};
+  var valid = true;
+  // Optional fields — these can be left blank and the document will still generate
+  var optionalFields = ['effective_date','party1_address','party1_email','party1_signatory','party2_address','party2_email','party2_signatory','freelancer_address','freelancer_email','client_address','client_email','client_signatory','company_address','company_email','company_signatory','contractor_address','contractor_email','consultant_address','consultant_email','partner1_address','partner1_email','partner2_address','partner2_email'];
+  d.fields.forEach(function(f) {
+    var el = document.getElementById('field-' + f.id);
+    if (!el) return;
+    var val = el.value.trim();
+    var isOptional = optionalFields.indexOf(f.id) !== -1;
+    if (f.type !== 'select' && !val && !isOptional) valid = false;
+    values[f.id] = val || el.value;
+  });
+
+  if (!valid) {
+    var err = document.getElementById('error-msg');
+    if (err) { err.style.display = 'block'; setTimeout(function() { err.style.display = 'none'; }, 3000); }
+    return;
+  }
+
+  if (docsRemaining <= 0) { showUpgradePrompt(); return; }
+
+  currentStep = 3; updateStepBar();
+  document.getElementById('content-area').innerHTML =
+    '<div class="generating">' +
+      '<div class="spinner"></div>' +
+      '<h3>Generating your ' + d.name + '...</h3>' +
+      '<p>Claude is drafting a customized document based on your details.</p>' +
+    '</div>';
+
+  var details = d.fields.map(function(f) { return f.label + ': ' + (values[f.id] || 'Not specified'); }).join('\n');
+  
+  var prompt = 'Generate a professional, market-ready ' + d.name + ' for the following parties and circumstances:\n\n' + details + '\n\n' +
+    'REQUIREMENTS — the document MUST include ALL of the following sections in order. Do not skip any:\n\n' +
+    '1. TITLE and PREAMBLE with effective date and full party identification (use the names provided above as the actual party names — never use placeholders like "Party A" alone)\n' +
+    '2. RECITALS (WHEREAS clauses) explaining the business context\n' +
+    '3. DEFINITIONS section with all key terms defined\n' +
+    '4. CORE OBLIGATIONS section detailing each partys duties\n' +
+    '5. EXCLUSIONS / EXCEPTIONS where relevant to the document type\n' +
+    '6. TERM AND TERMINATION clauses with specific durations and exit procedures\n' +
+    '7. BREACH AND REMEDIES section covering damages, injunctive relief, and specific performance\n' +
+    '8. GOVERNING LAW clause specifically referencing the jurisdiction provided above (if UAE is mentioned, reference UAE Federal Law and DIFC Courts where appropriate; if US, reference the specific state; if UK, reference England and Wales; if no jurisdiction provided, use a jurisdiction-neutral approach with arbitration)\n' +
+    '9. DISPUTE RESOLUTION clause with mediation-then-arbitration mechanism\n' +
+    '10. GENERAL PROVISIONS (entire agreement, severability, amendment, notices, assignment, waiver, force majeure, counterparts)\n' +
+    '11. SIGNATURE BLOCKS for both parties with name, title, date, and signature lines\n' +
+    '12. Final disclaimer line\n\n' +
+    'CRITICAL: Complete every section fully. Do not truncate. Use the actual party names provided above throughout the document. Reference the actual jurisdiction provided in the Governing Law section. Make it practically usable — ready for the parties to fill in addresses and sign.';
+
+  try {
+    var res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 8000,
+        system: 'You are ContractAI, a senior legal drafter producing documents that match or exceed the quality of top-tier legal template providers (Rocket Lawyer, LegalZoom, PandaDoc premium, and AmLaw 100 firm work product). Output ONLY the document (no preamble, no markdown fences, no commentary). Use ALL CAPS section headers.\n\n=== USE PROVIDED INFORMATION EXACTLY ===\n- Use the ACTUAL party names, addresses, emails, dates, and signatory details provided by the user\n- RESPECT EVERY VALUE THE USER ENTERED. If the user specifies a duration of 2 years, the Term MUST be 2 years — NEVER override the users stated duration, fee, dates, or any other input\n- Fill signature blocks and notice sections with the actual data provided\n- Only leave a blank line if the user genuinely did not provide that piece of information\n\n=== DRAFTING STANDARDS ===\n- Use "shall" for obligations, never "may"\n- DEFINE every defined term before using it. Never use an undefined capitalized term\n- Be precise: avoid vague phrases like "reasonable safeguards" without specifying what they mean (reference encryption such as AES-256, access controls, etc.)\n- Total document: comprehensive, complete, approximately 3500-4500 words\n- Complete EVERY section. Never truncate. Always finish the signature blocks and disclaimer\n\n=== MANDATORY SECTIONS (all must appear and be complete) ===\n\n1) TITLE AND PARTIES — full legal names, entity types, jurisdiction of organization, principal addresses\n\n2) RECITALS — 3-4 WHEREAS clauses establishing context and mutual intent\n\n3) DEFINITIONS — define ALL of these terms (each 1-2 sentences): Confidential Information, Disclosing Party, Receiving Party, Representatives, Purpose, Trade Secret, Affiliate, Material Breach (define clearly — e.g. any unauthorized disclosure, misuse, or failure to protect Confidential Information, or any breach not cured within the cure period), Business Day (define per the relevant jurisdiction — for UAE, Monday through Friday excluding UAE public holidays)\n\n4) CORE OBLIGATIONS — duty of confidentiality (define the standard of care precisely), use restriction, disclosure limitation, security standards (specify: encryption at rest and in transit using AES-256 or equivalent, role-based access controls, employee confidentiality training), incident notification within 48 hours, return/destruction within 10 Business Days with written certification, annual audit rights, sub-contractor flow-down obligations, no reverse engineering, legally compelled disclosure procedure\n\n5) INTELLECTUAL PROPERTY — no license granted, ownership retained by each party, jointly developed IP requires separate written agreement\n\n6) NON-SOLICITATION — during the Term and for 12 months after, neither party shall solicit or hire the others employees, contractors, or clients introduced through the Purpose, without prior written consent\n\n7) EXCLUSIONS AND EXCEPTIONS — 5 standard exclusions (public domain, prior knowledge, independent development, third-party receipt, written consent), burden of proof on Receiving Party by clear and convincing evidence, aggregated/anonymized data exception (use of aggregated statistical data that does not identify the Disclosing Party is permitted), residual knowledge limited to unaided memory and not applicable to Trade Secrets\n\n8) TERM AND TERMINATION — Term using the EXACT duration the user specified, termination for convenience (30 days notice), termination for cause (10 Business Day cure period), survival of obligations, PERPETUAL survival for Trade Secrets\n\n9) BREACH AND REMEDIES — acknowledgment of irreparable harm, injunctive relief without bond, monetary damages, TIERED LIQUIDATED DAMAGES (USD 25,000 per material breach involving a single document or item; USD 100,000 per material breach involving bulk data, client records, or Trade Secrets; or actual damages if greater — stated as a genuine pre-estimate of loss and not a penalty), indemnification (with reasonable cap reference), duty to mitigate (non-breaching party shall take reasonable steps to mitigate damages), attorneys fees to prevailing party, cumulative remedies, no liability cap for willful breach or breach of confidentiality\n\n10) GOVERNING LAW — for UAE: reference UAE Federal Law No. 5 of 1985 (Civil Transactions Law), UAE Federal Law No. 36 of 2021 (Trade Secrets), UAE Federal Decree-Law No. 33 of 2021 (Commercial Transactions Law where relevant), and DIFC Courts opt-in expressly pursuant to Article 5(A)(2) of the Judicial Authority Law (Dubai Law No. 12 of 2004, as amended). For US states: state law + Uniform Trade Secrets Act. For UK: English law + Trade Secrets (Enforcement) Regulations 2018. Otherwise: international arbitration\n\n11) DISPUTE RESOLUTION — good faith negotiation (15 days), mediation (30 days, DIAC or jurisdiction-appropriate body), binding arbitration (sole arbitrator, jurisdiction-appropriate seat, English, governed by relevant arbitration law), interim relief carve-out\n\n12) GENERAL PROVISIONS — entire agreement, amendments in writing only, severability with reformation, no waiver, no assignment without consent (with merger/acquisition exception), notices (with actual contact details filled in, email + courier), force majeure (defined: natural disasters, pandemic, war, terrorism, governmental action, infrastructure failure), counterparts with electronic signature validity (reference UAE Federal Decree-Law No. 46 of 2021 for UAE), no partnership or agency, 2-year limitation period on claims\n\n13) SIGNATURE BLOCKS — use the ACTUAL data provided in exactly this format:\n\nIN WITNESS WHEREOF, the Parties have executed this Agreement as of the Effective Date.\n\n[PARTY 1 ACTUAL NAME]\n\nBy: ________________________ (signature)\nName: [Actual signatory name, or blank]\nTitle: [Actual title, or blank]\nDate: [Effective date, or blank]\nAddress: [Actual address, or blank]\nEmail: [Actual email, or blank]\n\n[PARTY 2 ACTUAL NAME]\n\nBy: ________________________ (signature)\nName: [Actual signatory name, or blank]\nTitle: [Actual title, or blank]\nDate: [Effective date, or blank]\nAddress: [Actual address, or blank]\nEmail: [Actual email, or blank]\n\n--- END OF AGREEMENT ---\n\nDISCLAIMER: This document is AI-generated for informational purposes only and does not constitute legal advice. The Parties are advised to consult qualified legal counsel in the relevant jurisdiction before signing.\n\nNote: Adapt the section list intelligently to the document type. For a Terms of Service, Freelance Agreement, Consulting Agreement, etc., include the sections relevant to that document type while maintaining the same professional drafting standard, complete definitions, tiered remedies, and complete signature blocks.',
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    var data = await res.json();
+
+    if (data.error) {
+      var errMsg = data.error.message || data.error.type || JSON.stringify(data.error);
+      throw new Error(errMsg);
+    }
+
+    var text = '';
+    if (data.content) {
+      for (var i = 0; i < data.content.length; i++) {
+        if (data.content[i].type === 'text') {
+          text += data.content[i].text;
+        }
+      }
+    }
+
+    if (!text) throw new Error('No content returned');
+
+    docsRemaining--;
+    document.getElementById('docs-remaining').textContent = docsRemaining + ' document' + (docsRemaining !== 1 ? 's' : '') + ' remaining';
+    showDocument(d, text, values);
+
+  } catch (err) {
+    document.getElementById('content-area').innerHTML =
+      '<div class="form-panel">' +
+        '<div class="error-msg" style="display:block;margin-top:0">Error: ' + (err.message || 'Something went wrong.') + '</div>' +
+        '<div class="form-actions" style="margin-top:16px">' +
+          '<button class="btn-back" onclick="selectDoc(\'' + d.id + '\')">Try again</button>' +
+        '</div>' +
+      '</div>';
+  }
+}
+
+function showDocument(d, text, values) {
+  var firstVal = values[Object.keys(values)[0]];
+  var title = firstVal ? d.name + ' — ' + firstVal : d.name;
+  document.getElementById('content-area').innerHTML =
+    '<div class="doc-output">' +
+      '<div class="doc-toolbar">' +
+        '<h3>📄 ' + title + '</h3>' +
+        '<div class="toolbar-actions">' +
+          '<button class="btn-action" onclick="copyDoc()">Copy text</button>' +
+          '<button class="btn-action" onclick="printDoc()">Download / Print</button>' +
+          '<button class="btn-action" onclick="selectDoc(\'' + d.id + '\')">Edit details</button>' +
+          '<button class="btn-action primary" onclick="goBack()">New document</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="disclaimer-box"><strong>Legal notice:</strong>&nbsp;This document is AI-generated and not a substitute for professional legal advice.</div>' +
+      '<div class="doc-paper" id="doc-text">' + escHtml(text) + '</div>' +
+    '</div>';
+}
+
+function escHtml(str) { return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function copyDoc() {
+  var el = document.getElementById('doc-text');
+  if (!el) return;
+  navigator.clipboard.writeText(el.innerText);
+}
+
+function printDoc() {
+  var el = document.getElementById('doc-text');
+  if (!el) return;
+  var w = window.open('', '_blank');
+  w.document.write('<html><head><title>ContractAI Document</title><style>body{font-family:Georgia,serif;font-size:14px;line-height:1.8;padding:48px;max-width:700px;margin:0 auto;color:#1a1a1a;white-space:pre-wrap;}</style></head><body>' + el.innerHTML + '</body></html>');
+  w.document.close(); w.print();
+}
+
+function showUpgradePrompt() {
+  document.getElementById('content-area').innerHTML =
+    '<div class="welcome">' +
+      '<div class="welcome-icon">⭐</div>' +
+      '<h2>You have used your 3 free documents</h2>' +
+      '<p>Upgrade to Pro for unlimited document generation and 40+ templates.</p>' +
+      '<button class="btn-generate" style="margin-top:8px">Upgrade to Pro</button>' +
+    '</div>';
+}
+
+renderSidebar();
+</script>
+</body>
+</html>
