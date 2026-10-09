@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ContractAI — Document Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #0f0e0c; --ink-2: #3a3832; --ink-3: #7a7870;
+    --paper: #faf9f6; --paper-2: #f2f0eb; --paper-3: #e8e5de;
+    --gold: #b8973a; --gold-light: #f0e8cc;
+    --seal: #1a3a2a; --seal-light: #e8f0ec; --seal-hover: #152e20;
+    --radius: 6px; --radius-lg: 12px; --danger: #c0392b;
+  }
+  html, body { height: 100%; }
+  body { font-family: 'Inter', sans-serif; background: var(--paper); color: var(--ink); font-size: 14px; line-height: 1.6; -webkit-font-smoothing: antialiased; min-height: 100vh; }
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 54px; border-bottom: 1px solid var(--paper-3); background: var(--paper); position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'Instrument Serif', serif; font-size: 18px; color: var(--ink); display: flex; align-items: center; gap: 8px; }
+  .logo-seal { width: 24px; height: 24px; background: var(--seal); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #fff; font-family: 'Instrument Serif', serif; }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .nav-badge { background: var(--gold-light); color: #7a5a10; font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+  .docs-remaining { font-size: 12px; color: var(--ink-3); }
+  .app { display: grid; grid-template-columns: 300px 1fr; min-height: calc(100vh - 54px); }
+  .sidebar { border-right: 1px solid var(--paper-3); background: var(--paper-2); display: flex; flex-direction: column; overflow-y: auto; }
+  .sidebar-header { padding: 20px 20px 12px; border-bottom: 1px solid var(--paper-3); }
+  .sidebar-header h2 { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .sidebar-header p { font-size: 12px; color: var(--ink-3); }
+  .doc-type-list { padding: 8px 0; flex: 1; }
+  .doc-type { display: flex; align-items: center; gap: 10px; padding: 10px 20px; cursor: pointer; transition: background 0.12s; border-left: 3px solid transparent; user-select: none; }
+  .doc-type:hover { background: var(--paper-3); }
+  .doc-type.active { background: var(--paper); border-left-color: var(--seal); }
+  .doc-icon { width: 30px; height: 30px; border-radius: 6px; background: var(--paper); display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; border: 1px solid var(--paper-3); }
+  .doc-type.active .doc-icon { background: var(--seal-light); border-color: var(--seal-light); }
+  .doc-info h3 { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .doc-info p { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+  .steps-bar { display: flex; align-items: center; padding: 16px 32px; border-bottom: 1px solid var(--paper-3); background: var(--paper); }
+  .step-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-3); }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--paper-3); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--ink-3); background: var(--paper); transition: all 0.2s; }
+  .step-item.active .step-num { background: var(--seal); border-color: var(--seal); color: #fff; }
+  .step-item.done .step-num { background: var(--seal-light); border-color: var(--seal-light); color: var(--seal); }
+  .step-item.done .step-label, .step-item.active .step-label { color: var(--ink); font-weight: 500; }
+  .step-arrow { width: 24px; height: 1px; background: var(--paper-3); margin: 0 8px; flex-shrink: 0; }
+  .content { flex: 1; overflow-y: auto; }
+  .form-panel { padding: 32px; max-width: 620px; }
+  .form-panel h2 { font-family: 'Instrument Serif', serif; font-size: 26px; letter-spacing: -0.5px; color: var(--ink); margin-bottom: 4px; }
+  .form-panel .subtitle { font-size: 13px; color: var(--ink-3); margin-bottom: 28px; }
+  .field { margin-bottom: 20px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--paper-3); border-radius: var(--radius); font-family: 'Inter', sans-serif; font-size: 13px; color: var(--ink); background: #fff; outline: none; transition: border-color 0.15s; appearance: none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--seal); box-shadow: 0 0 0 3px rgba(26,58,42,0.08); }
+  .field textarea { resize: vertical; min-height: 80px; }
+  .field select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237a7870' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; cursor: pointer; }
+  .form-actions { display: flex; align-items: center; gap: 12px; margin-top: 32px; padding-top: 24px; border-top: 1px solid var(--paper-3); }
+  .btn-generate { background: var(--seal); color: #fff; border: none; padding: 11px 24px; border-radius: var(--radius); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 8px; }
+  .btn-generate:hover { background: var(--seal-hover); }
+  .btn-back { background: none; border: 1px solid var(--paper-3); color: var(--ink-2); padding: 11px 20px; border-radius: var(--radius); font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer; }
+  .btn-back:hover { background: var(--paper-2); }
+  .generating { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 32px; text-align: center; gap: 20px; }
+  .spinner { width: 36px; height: 36px; border: 2px solid var(--paper-3); border-top-color: var(--seal); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .generating h3 { font-family: 'Instrument Serif', serif; font-size: 22px; color: var(--ink); }
+  .generating p { font-size: 13px; color: var(--ink-3); }
+  .doc-output { padding: 32px; }
+  .doc-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+  .doc-toolbar h3 { font-family: 'Instrument Serif', serif; font-size: 20px; color: var(--ink); }
+  .toolbar-actions { display: flex; gap: 8px; }
+  .btn-action { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: var(--radius); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: 1px solid var(--paper-3); background: var(--paper-2); color: var(--ink-2); }
+  .btn-action:hover { background: var(--paper-3); }
+  .btn-action.primary { background: var(--seal); color: #fff; border-color: var(--seal); }
+  .doc-paper { background: #fff; border: 1px solid var(--paper-3); border-radius: var(--radius-lg); padding: 48px 56px; max-width: 700px; font-family: 'Georgia', serif; font-size: 14px; line-height: 1.8; color: #1a1a1a; white-space: pre-wrap; word-wrap: break-word; }
+  .disclaimer-box { background: var(--gold-light); border: 1px solid #d4b56a; border-radius: var(--radius); padding: 12px 16px; font-size: 11px; color: #6b4c0a; margin-bottom: 20px; max-width: 700px; display: flex; gap: 8px; }
+  .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 32px; text-align: center; gap: 16px; }
+  .welcome-icon { width: 64px; height: 64px; background: var(--seal-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; }
+  .welcome h2 { font-family: 'Instrument Serif', serif; font-size: 26px; color: var(--ink); }
+  .welcome p { font-size: 14px; color: var(--ink-3); max-width: 380px; }
+  .error-msg { background: #fdf0ef; border: 1px solid #f5c6c2; border-radius: var(--radius); padding: 12px 16px; font-size: 13px; color: var(--danger); margin-top: 16px; display: none; }
+  .field-hint { font-size: 11px; color: var(--ink-3); margin-top: 6px; }
+  .check-box { background: var(--seal-light); border: 1px solid #c9dccf; border-radius: var(--radius); padding: 10px 16px; font-size: 12px; color: var(--seal); margin-bottom: 12px; max-width: 700px; }
+  .btn-action:disabled { opacity: 0.6; cursor: wait; }
+  .toolbar-actions { flex-wrap: wrap; }
+  @media (max-width: 768px) { .app { grid-template-columns: 1fr; } .sidebar { max-height: 200px; } .doc-paper { padding: 24px 20px; } .form-panel { padding: 20px; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo"><div class="logo-seal">C</div>ContractAI</div>
+  <div class="nav-right">
+    <div class="nav-badge">Free trial</div>
+    <div class="docs-remaining" id="docs-remaining">3 documents remaining</div>
+  </div>
+</nav>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-header"><h2>Document types</h2><p>Select a template to begin</p></div>
+    <div class="doc-type-list" id="doc-type-list"></div>
+  </div>
+  <div class="main">
+    <div class="steps-bar">
+      <div class="step-item active" id="step-1-indicator"><div class="step-num">1</div><div class="step-label">Choose document</div></div>
+      <div class="step-arrow"></div>
+      <div class="step-item" id="step-2-indicator"><div class="step-num">2</div><div class="step-label">Answer questions</div></div>
+      <div class="step-arrow"></div>
+      <div class="step-item" id="step-3-indicator"><div class="step-num">3</div><div class="step-label">Download document</div></div>
+    </div>
+    <div class="content" id="content-area">
+      <div class="welcome">
+        <div class="welcome-icon">📄</div>
+        <h2>What document do you need?</h2>
+        <p>Choose a template from the left to get started.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="core.js"></script>
+<script>
+var docsRemaining = 3;
+var currentDoc = null;
+var currentStep = 1;
+var lastResult = null;
+
+function esc(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function renderSidebar() {
+  document.getElementById('doc-type-list').innerHTML = DOC_TYPES.map(function(d) {
+    return '<div class="doc-type" onclick="selectDoc(\'' + d.id + '\')" id="dt-' + d.id + '">' +
+      '<div class="doc-icon">' + d.icon + '</div>' +
+      '<div class="doc-info"><h3>' + d.name + '</h3><p>' + d.desc + '</p></div>' +
+    '</div>';
+  }).join('');
+}
+
+function selectDoc(id) {
+  currentDoc = DOC_TYPES.find(function(d) { return d.id === id; });
+  document.querySelectorAll('.doc-type').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('dt-' + id).classList.add('active');
+  currentStep = 2; updateStepBar(); renderForm();
+}
+
+function updateStepBar() {
+  [1,2,3].forEach(function(n) {
+    var el = document.getElementById('step-' + n + '-indicator');
+    el.classList.remove('active','done');
+    if (n < currentStep) el.classList.add('done');
+    else if (n === currentStep) el.classList.add('active');
+  });
+}
+
+function renderForm() {
+  var d = currentDoc;
+  var fieldsHtml = allFields(d).map(renderField).join('');
+  document.getElementById('content-area').innerHTML =
+    '<div class="form-panel">' +
+      '<h2>' + d.icon + ' ' + d.name + '</h2>' +
+      '<p class="subtitle">Fill in the details and we will generate your customized document.</p>' +
+      fieldsHtml +
+      '<div class="error-msg" id="error-msg">Please fill in all required fields.</div>' +
+      '<div class="form-actions">' +
+        '<button class="btn-generate" onclick="generate()"><span>✦</span> Generate document</button>' +
+        '<button class="btn-back" onclick="goBack()">Back</button>' +
+      '</div>' +
+    '</div>';
+}
+
+function renderField(f) {
+  var labelText = esc(f.label) + (f.optional ? ' <span style="color:#7a7870;font-weight:400">(optional)</span>' : '');
+  if (f.type === 'country') {
+    var copts = COUNTRIES.map(function(c) {
+      return '<option' + (c.live ? '' : ' disabled') + '>' + c.name + (c.live ? '' : ' (coming soon)') + '</option>';
+    }).join('');
+    return '<div class="field"><label>' + labelText + '</label><select id="field-' + f.id + '">' + copts + '</select>' +
+      '<p class="field-hint">More GCC countries are coming soon. Use the country whose law should govern the contract.</p></div>';
+  }
+  if (f.type === 'textarea') return '<div class="field"><label>' + labelText + '</label><textarea id="field-' + f.id + '" placeholder="' + esc(f.placeholder||'') + '"></textarea></div>';
+  if (f.type === 'select') {
+    var opts = f.options.map(function(o) { return '<option>' + esc(o) + '</option>'; }).join('');
+    return '<div class="field"><label>' + labelText + '</label><select id="field-' + f.id + '">' + opts + '</select></div>';
+  }
+  var inputType = (f.id.indexOf('date') !== -1) ? 'date' : 'text';
+  return '<div class="field"><label>' + labelText + '</label><input type="' + inputType + '" id="field-' + f.id + '" placeholder="' + esc(f.placeholder||'') + '"></div>';
+}
+
+function goBack() {
+  currentStep = 1; updateStepBar();
+  document.querySelectorAll('.doc-type').forEach(function(el) { el.classList.remove('active'); });
+  document.getElementById('content-area').innerHTML = '<div class="welcome"><div class="welcome-icon">📄</div><h2>What document do you need?</h2><p>Choose a template from the left to get started.</p></div>';
+}
+
+async function generate() {
+  var d = currentDoc;
+  var values = {};
+  var valid = true;
+  allFields(d).forEach(function(f) {
+    var el = document.getElementById('field-' + f.id);
+    if (!el) return;
+    var val = el.value.trim();
+    if (f.type !== 'select' && f.type !== 'country' && !val && !f.optional) valid = false;
+    values[f.id] = val;
+  });
+
+  if (!valid) {
+    var err = document.getElementById('error-msg');
+    if (err) { err.style.display = 'block'; setTimeout(function() { err.style.display = 'none'; }, 3000); }
+    return;
+  }
+
+  if (docsRemaining <= 0) { showUpgradePrompt(); return; }
+
+  currentStep = 3; updateStepBar();
+  document.getElementById('content-area').innerHTML =
+    '<div class="generating">' +
+      '<div class="spinner"></div>' +
+      '<h3>Generating your ' + d.name + '...</h3>' +
+      '<p>Claude is drafting your document, then we check it against our UAE quality rubric. This can take up to a minute.</p>' +
+    '</div>';
+
+  try {
+    var result = await generateChecked(d, values);
+    if (!result.check.passed) {
+      throw new Error('We could not produce a document that passed our quality checks (' +
+        result.check.criticalFails.map(function(f) { return f.label; }).join('; ') + '). Please try again.');
+    }
+    docsRemaining--;
+    document.getElementById('docs-remaining').textContent = docsRemaining + ' document' + (docsRemaining !== 1 ? 's' : '') + ' remaining';
+    showDocument(d, result, values);
+  } catch (err) {
+    document.getElementById('content-area').innerHTML =
+      '<div class="form-panel">' +
+        '<div class="error-msg" style="display:block;margin-top:0">' + esc(err.message || 'Something went wrong.') + '</div>' +
+        '<div class="form-actions" style="margin-top:16px">' +
+          '<button class="btn-back" onclick="selectDoc(\'' + d.id + '\')">Try again</button>' +
+        '</div>' +
+      '</div>';
+  }
+}
+
+function showDocument(d, result, values) {
+  var party = values[d.partyFields[0]];
+  var title = party ? d.name + ' — ' + party : d.name;
+  lastResult = { text: result.text, fileName: title };
+  var passedCount = result.check.results.filter(function(r) { return r.pass; }).length;
+  document.getElementById('content-area').innerHTML =
+    '<div class="doc-output">' +
+      '<div class="doc-toolbar">' +
+        '<h3>📄 ' + esc(title) + '</h3>' +
+        '<div class="toolbar-actions">' +
+          '<button class="btn-action primary" onclick="dl(\'pdf\', this)">Download PDF</button>' +
+          '<button class="btn-action" onclick="dl(\'docx\', this)">Download Word</button>' +
+          '<button class="btn-action" onclick="copyDoc(this)">Copy text</button>' +
+          '<button class="btn-action" onclick="printDoc()">Print</button>' +
+          '<button class="btn-action" onclick="selectDoc(\'' + d.id + '\')">Edit details</button>' +
+          '<button class="btn-action" onclick="goBack()">New document</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="check-box">✓ Passed ' + passedCount + ' of ' + result.check.results.length + ' automatic quality checks for UAE ' + esc(d.name) + 's.</div>' +
+      '<div class="disclaimer-box"><strong>Legal notice:</strong>&nbsp;This document is AI-generated and not a substitute for professional legal advice. Have a qualified UAE lawyer review it before signing.</div>' +
+      '<div class="doc-paper" id="doc-text">' + esc(result.text) + '</div>' +
+    '</div>';
+}
+
+async function dl(kind, btn) {
+  if (!lastResult) return;
+  var label = btn.textContent; btn.textContent = 'Preparing…'; btn.disabled = true;
+  try {
+    if (kind === 'pdf') await downloadPdf(lastResult.text, lastResult.fileName);
+    else await downloadDocx(lastResult.text, lastResult.fileName);
+  } catch (e) {
+    alert('Download failed: ' + e.message + '. You can use Print and choose "Save as PDF" instead.');
+  } finally { btn.textContent = label; btn.disabled = false; }
+}
+
+function copyDoc(btn) {
+  var el = document.getElementById('doc-text');
+  if (!el) return;
+  navigator.clipboard.writeText(el.innerText).then(function() {
+    var t = btn.textContent; btn.textContent = 'Copied'; setTimeout(function() { btn.textContent = t; }, 1500);
+  });
+}
+
+function printDoc() {
+  var el = document.getElementById('doc-text');
+  if (!el) return;
+  var w = window.open('', '_blank');
+  w.document.write('<html><head><title>ContractAI Document</title><style>body{font-family:Georgia,serif;font-size:14px;line-height:1.8;padding:48px;max-width:700px;margin:0 auto;color:#1a1a1a;white-space:pre-wrap;}</style></head><body>' + el.innerHTML + '</body></html>');
+  w.document.close(); w.print();
+}
+
+function showUpgradePrompt() {
+  document.getElementById('content-area').innerHTML =
+    '<div class="welcome">' +
+      '<div class="welcome-icon">⭐</div>' +
+      '<h2>You have used your 3 free documents</h2>' +
+      '<p>Upgrade to Pro for unlimited document generation.</p>' +
+      '<button class="btn-generate" style="margin-top:8px">Upgrade to Pro</button>' +
+    '</div>';
+}
+
+renderSidebar();
+</script>
+</body>
+</html>
