@@ -29,7 +29,9 @@
 <main>
   <h1>ContractAI template tests</h1>
   <p class="lead">Generates all 6 templates with sample UAE details and checks each against the rubric. Uses about USD 0.60–1.20 of API credit. When it finishes, press <b>Download results</b> and upload the file in the ContractAI thread.</p>
+  <p class="lead" style="margin-top:-12px">Keep this tab in front and the computer awake until all 6 finish. A sleeping computer drops the connection.</p>
   <button id="run" onclick="runAll()">Run all 6 tests</button>
+  <button id="rerun" class="secondary" onclick="runAll(true)" disabled>Re-run failed only</button>
   <button id="save" class="secondary" onclick="saveResults()" disabled>Download results</button>
   <div id="out"></div>
 </main>
@@ -44,6 +46,10 @@ var SAMPLES = {
   partnership: { emirate:'Dubai', partner1:'Sara Mansour', partner2:'Karim Youssef', business_name:'Ember Roastery', contributions:'Sara Mansour: AED 60,000 cash. Karim Youssef: AED 40,000 cash plus full-time operations work.', split:'50/50', roles:'Sara handles sales and wholesale accounts; Karim runs day-to-day roasting operations. Major decisions are unanimous.', dissolution:'Buy-out at agreed valuation', effective_date:'2026-10-07', partner1_address:'Al Barsha 2, Dubai', partner1_email:'sara@example.com', partner2_address:'Mirdif, Dubai', partner2_email:'karim@example.com' }
 };
 var RESULTS = [];
+// test.html?only=tos,consulting runs just those templates.
+var ONLY = (new URLSearchParams(location.search).get('only') || '').split(',').filter(Boolean);
+if (!ONLY.length) ONLY = null;
+if (ONLY) document.getElementById('run').textContent = 'Run ' + ONLY.length + ' selected test' + (ONLY.length > 1 ? 's' : '');
 
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -51,14 +57,17 @@ function card(d, status, body) {
   return '<div class="card" id="card-' + d.id + '"><h2><span>' + d.icon + ' ' + d.name + '</span><span class="status ' + status.cls + '">' + status.text + '</span></h2>' + (body || '') + '</div>';
 }
 
-async function runAll() {
-  document.getElementById('run').disabled = true;
-  document.getElementById('save').disabled = true;
-  RESULTS = [];
+async function runAll(failedOnly) {
+  ['run', 'rerun', 'save'].forEach(function (id) { document.getElementById(id).disabled = true; });
+  var keep = failedOnly ? RESULTS.filter(function (r) { return r.passed; }) : [];
+  var keepIds = keep.map(function (r) { return r.id; });
+  RESULTS = keep;
   var out = document.getElementById('out');
-  out.innerHTML = DOC_TYPES.map(function (d) { return card(d, { cls: '', text: 'Waiting' }); }).join('');
+  if (!failedOnly) out.innerHTML = DOC_TYPES.map(function (d) { return card(d, { cls: '', text: 'Waiting' }); }).join('');
   for (var i = 0; i < DOC_TYPES.length; i++) {
     var d = DOC_TYPES[i];
+    if (keepIds.indexOf(d.id) !== -1) continue;
+    if (ONLY && ONLY.indexOf(d.id) === -1) { document.getElementById('card-' + d.id).outerHTML = card(d, { cls: '', text: 'Skipped' }); continue; }
     var values = Object.assign({ country: 'United Arab Emirates' }, SAMPLES[d.id]);
     document.getElementById('card-' + d.id).outerHTML = card(d, { cls: '', text: 'Generating…' });
     var started = Date.now();
@@ -74,8 +83,10 @@ async function runAll() {
       document.getElementById('card-' + d.id).outerHTML = card(d, { cls: 'fail', text: 'Error' }, '<div class="meta">' + esc(e.message) + '</div>');
     }
   }
+  RESULTS.sort(function (a, b) { return DOC_TYPES.findIndex(function (d) { return d.id === a.id; }) - DOC_TYPES.findIndex(function (d) { return d.id === b.id; }); });
   document.getElementById('run').disabled = false;
   document.getElementById('save').disabled = false;
+  document.getElementById('rerun').disabled = RESULTS.every(function (r) { return r.passed; });
 }
 
 function saveResults() {

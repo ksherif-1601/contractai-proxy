@@ -331,13 +331,25 @@ function checkDocument(d, text, values, stopReason) {
 
 // ---------- Generation (one automatic retry if the checks fail) ----------
 
+function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+async function postToProxy(body) {
+  // A dropped connection (computer asleep, Wi-Fi change, gateway timeout without CORS headers)
+  // surfaces as a bare TypeError "Failed to fetch". Retry those once before giving up.
+  for (var attempt = 1; ; attempt++) {
+    try {
+      return await fetch(PROXY_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body });
+    } catch (e) {
+      if (attempt >= 2) throw new Error('The connection dropped while the document was being written. Check your internet connection, keep this tab open and try again.');
+      await wait(3000);
+    }
+  }
+}
+
 async function callModel(system, userContent) {
-  var res = await fetch(PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, system: system, messages: [{ role: 'user', content: userContent }] })
-  });
-  var data = await res.json();
+  var res = await postToProxy(JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, system: system, messages: [{ role: 'user', content: userContent }] }));
+  var data;
+  try { data = await res.json(); } catch (e) { throw new Error('The server returned an unexpected response (' + res.status + '). Please try again.'); }
   if (data.error) throw new Error(typeof data.error === 'string' ? data.error : (data.error.message || data.error.type || 'Request failed'));
   var text = '';
   (data.content || []).forEach(function (c) { if (c.type === 'text') text += c.text; });
