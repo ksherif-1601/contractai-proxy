@@ -111,7 +111,8 @@ function baseInstructions(emirate) {
   return 'You are ContractAI, a senior UAE legal drafter producing documents that match the quality of mid-tier law firm work. ' +
     'Output ONLY the document (no preamble, no markdown, no commentary). Use ALL CAPS section headers. ' +
     'Use the ACTUAL party names, addresses, emails, dates and signatory details provided, and respect every value the user entered (durations, fees, dates). ' +
-    'Never use placeholders such as [Party A], [DATE] or XXX; if a value was not given, leave a blank line (________).\n\n' +
+    'Never use placeholders such as [Party A], [DATE] or XXX; if a value was not given, leave a blank line (________). ' +
+    'Write every section exactly once: the recitals (WHEREAS clauses) and the definitions appear only under their own numbered headers, never also in the parties block or a second time later.\n\n' +
     'DRAFTING STANDARDS:\n' +
     '- Use "shall" for obligations. Define every capitalised term before using it.\n' +
     '- Clauses of 2 to 4 sentences, precise and without filler. Aim for 3,000 to 4,500 words so every section fits. Never truncate.\n' +
@@ -264,6 +265,19 @@ function buildUserPrompt(d, values) {
 
 function has(text, re) { return re.test(text); }
 
+// A section header (RECITALS, DEFINITIONS...) used twice, or the same long paragraph written twice.
+function hasRepeats(text) {
+  var seen = {};
+  return text.split(/\n+/).some(function (line) {
+    var t = line.replace(/^\s*(\d+(\.\d+)*[.)]?|[a-z][.)]|\([a-z0-9]+\))\s*/i, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    var isHeader = /^(recitals|definitions|definitions and interpretation|whereas)[:.]?$/.test(t);
+    if (!isHeader && t.length < 120) return false;
+    if (seen[t]) return true;
+    seen[t] = true;
+    return false;
+  });
+}
+
 function checkDocument(d, text, values, stopReason) {
   var results = [];
   function add(id, label, pass, critical) { results.push({ id: id, label: label, pass: !!pass, critical: critical !== false }); }
@@ -276,6 +290,7 @@ function checkDocument(d, text, values, stopReason) {
   add('A5', 'No repealed or wrong law citations', !/No\.?\s*\(?5\)?\s*of\s*1985|No\.?\s*\(?36\)?\s*of\s*2021/i.test(text));
   add('A6', 'Dispute route is DIAC arbitration', has(text, /DIAC|Dubai International Arbitration Cent/i));
   add('A13', 'Cites the UAE e-signature law', has(text, /46\s*of\s*2021/), false);
+  add('A3', 'No repeated sections or paragraphs', !hasRepeats(text));
 
   if (d.id !== 'nda') {
     add('A9', 'No NDA clauses in a non-NDA document', !/Disclosing Party|Receiving Party|USD\s*25,000|USD\s*100,000/.test(text));
